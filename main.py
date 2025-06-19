@@ -1,6 +1,9 @@
 import discord 
 import yt_dlp
 import asyncio
+import os
+import uuid
+import shutil
 from discord.ext import commands
 from collections import deque
 
@@ -11,22 +14,30 @@ bot = commands.Bot(".", intents=intents,case_insensitive=True)
 music_queue = deque()
 is_playing = False
 
+os.makedirs("fila", exist_ok=True)
+
 
 async def tocar(ctx:commands.Context): #toca a musica ou reproduz a tocar da fila
     global is_playing
 
     if music_queue:
         is_playing = True
-        url, title = music_queue.popleft()
-        source = discord.FFmpegPCMAudio(url, options='-vn')
+        filepath, title = music_queue.popleft()
+        source = discord.FFmpegPCMAudio(filepath)
 
         ctx_copy = ctx
 
         def after_play(error):
             if error:
                 print(f"Erro ao tocar a música")
-            else:
-                asyncio.run_coroutine_threadsafe(tocar(ctx_copy), bot.loop)
+            
+            try:
+                os.remove(filepath) #apos a musica terminar e apagada da pasta fila
+
+            except Exception as e:
+                print(f"[ERRO ao apagar arquivo] {e}")
+
+            asyncio.run_coroutine_threadsafe(tocar(ctx_copy), bot.loop)
 
         try:
             ctx.voice_client.play(
@@ -73,34 +84,49 @@ async def buscar(ctx:commands.Context, *, search: str):
 
     await ctx.send("Estou buscando sua música, aguarde um momento...")
 
-    ydl_options = {'format': 'bestaudio'} #escolher o melhor audio disponivel
+    filename = os.path.join("fila", f"{uuid.uuid4()}.webm") #salva a musica na pasta fila
 
-    try: #comeca a procurar a musica
+    ydl_options = {'format': 'bestaudio[ext=webm]/bestaudio', 'outtmpl': filename, 'quiet': True} #escolher o melhor audio disponivel
+
+    try: #baixa a musica
         with yt_dlp.YoutubeDL(ydl_options) as ydl:
-            info = ydl.extract_info(f"ytsearch:{search}", download=False)['entries'][0]
-            url = info['url']
+            info = ydl.extract_info(f"ytsearch:{search}", download=True)['entries'][0]
             title = info['title']
+
     except Exception as e:
         await ctx.reply("Opa, ocorreu um erro ao buscar a música")
         print(f"[ERRO yt-dlp]{e}")
         return
     
     if is_playing:
-        music_queue.append((url, title))
+        music_queue.append((filename, title))
         await ctx.send(f"Música {title} adicionada à fila")
 
     if not is_playing:
-        music_queue.appendleft((url, title))
+        music_queue.appendleft((filename, title))
         await tocar(ctx)
 
 @bot.command(name="parar") #parar a musica
 async def parar(ctx:commands.Context):
     global music_queue, is_playing
     voice = ctx.voice_client
+
     if voice and voice.is_playing():
-        voice.stop()
         music_queue.clear()
         is_playing = False
+        voice.stop()
+        await voice.disconnect()
+
+        await asyncio.sleep(1)
+
+        try: #exclui a fila
+            if os.path.exists("fila"):
+                shutil.rmtree("fila")
+                os.makedirs("fila", exist_ok=True)
+
+        except Exception as e:
+            print(f"[ERRO ao apagar a fila {e}]")
+
         await embed_stop(ctx)
     
     else: 
@@ -111,7 +137,7 @@ async def parar(ctx:commands.Context):
 async def embed_guide(ctx:commands.Context):
     embed_guide = discord.Embed(
     title="Guia de comandos do Orpheus:",
-    description="'.tocar (nome da musica)' - toca a musica digitada\n'.parar' - interrompe as musicas e deleta a fila"
+    description="'.tocar (nome da musica)' - toca a musica digitada ou coloca na fila\n'.parar' - interrompe as musicas e deleta a fila"
     )
 
     await ctx.send(embed=embed_guide)
@@ -121,7 +147,7 @@ async def embed_play(ctx:commands.Context, title: str):
     title="🎶 Tocando:",
     description=title,
     )
-    embed_play.set_footer(text="Dica: digite '.parar' para interromper")
+    embed_play.set_footer(text="Dica: digite '.parar' para interromper, ou adicione uma musica na fila com '.tocar (nome da musica)")
 
     await ctx.send(embed=embed_play)
 
@@ -144,6 +170,12 @@ async def embed_apolo(ctx:commands.Context):
 #ONREADY
 @bot.event 
 async def on_ready():
+
+    #reseta a pasta fila
+    if os.path.exists("fila"):
+        shutil.rmtree("fila")
+        os.makedirs("fila", exist_ok=True)
+
     print("+++++ Orpheus está agora no ar! +++++")
 
 bot.run(token)

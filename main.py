@@ -132,12 +132,31 @@ async def parar(ctx:commands.Context):
     else: 
         await ctx.send("Opa, não estou tocando nenhuma música agora")
 
+@bot.command(name="pausar") #pausar a musica
+async def pausar(ctx:commands.Context):
+    voice = ctx.voice_client
+    if voice and voice.is_playing():
+        voice.pause()
+        await embed_pause(ctx)
+    
+    else:
+        await ctx.send("Opa, não estou tocando nenhuma música no momento")
+
+@bot.command(name="continuar") #continuar a musica
+async def continuar(ctx:commands.Context):
+    voice = ctx.voice_client
+    if voice and voice.is_paused():
+        voice.resume()
+        await embed_resume(ctx)
+
+    else:
+        await ctx.send("Opa, nenhuma música está pausada")
 
 #EMBEDS
 async def embed_guide(ctx:commands.Context):
     embed_guide = discord.Embed(
     title="Guia de comandos do Orpheus:",
-    description="'.tocar (nome da musica)' - toca a musica digitada ou coloca na fila\n'.parar' - interrompe as musicas e deleta a fila"
+    description=".tocar nome da musica - toca a musica digitada ou coloca na fila\n.parar - interrompe as musicas e deleta a fila\n.pausar - pausa a música atual\n.continuar - continua a música pausada"
     )
 
     await ctx.send(embed=embed_guide)
@@ -147,16 +166,31 @@ async def embed_play(ctx:commands.Context, title: str):
     title="🎶 Tocando:",
     description=title,
     )
-    embed_play.set_footer(text="Dica: digite '.parar' para interromper, ou adicione uma musica na fila com '.tocar (nome da musica)")
+    embed_play.set_footer(text="Dica: digite '.parar' para interromper e '.pausar' para pausar, ou adicione uma musica na fila com '.tocar nome da musica'")
 
     await ctx.send(embed=embed_play)
 
 async def embed_stop(ctx:commands.Context):
     embed_stop = discord.Embed(
-        title="❌ Música interrompida!"
+        title="⏹ Música interrompida!"
     )
 
     await ctx.send(embed=embed_stop)
+
+async def embed_pause(ctx:commands.Context):
+    embed_pause = discord.Embed(
+        title="⏸ Música pausada",
+        description="Digite '.continuar' para voltar a ouvir"
+    )
+
+    await ctx.send(embed=embed_pause)
+
+async def embed_resume(ctx:commands.Context):
+    embed_resume = discord.Embed(
+        title="▶ Música retomada"
+    )
+
+    await ctx.send(embed=embed_resume)
 
 async def embed_apolo(ctx:commands.Context):
     embed_apolo = discord.Embed(

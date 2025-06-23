@@ -43,7 +43,7 @@ Este foi um projeto criado como aprendizado pessoal e para uso entre amigos, nã
 
 ### 1. Clone o repositório
 ```
-git clone https://github.com/Yanmatheus0812/discord-bot-music
+git clone https://github.com/Yanmatheus0812/discord-bot-music/tree/main
 ```
 
 ### 2. Instale as dependências
